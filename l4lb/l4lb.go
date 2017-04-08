@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"runtime"
 
 	"github.com/asridharan/dcos-cni-plugins/l4lb/spartan"
@@ -145,7 +146,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 
 	delegateResult, err := invoke.DelegateAdd(delegatePlugin, delegateConf)
 	if err != nil {
-		return fmt.Errorf("failed to invoke delegate plugin %s: %v", conf.Delegate["type"])
+		return fmt.Errorf("failed to invoke delegate plugin %s: %v", delegatePlugin, err)
 	}
 
 	spartanConfig := spartan.SpartanConfig
@@ -264,19 +265,7 @@ func cmdDel(args *skel.CmdArgs) error {
 	})
 
 	if err != nil {
-		return err
-	}
-
-	containerRoute := netlink.Route{
-		Dst: &net.IPNet{
-			IP:   ipn.IP,
-			Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0xff),
-		},
-		Scope: netlink.SCOPE_LINK,
-	}
-
-	if err = netlink.RouteDel(&containerRoute); err != nil {
-		return fmt.Errorf("failed to delete container route %v: %v", containerRoute, err)
+		fmt.Fprintf(os.Stderr, "failed to delete spartan interface in container: %v", err)
 	}
 
 	// Invoke the delegate plugin.
@@ -296,7 +285,7 @@ func cmdDel(args *skel.CmdArgs) error {
 
 	err = invoke.DelegateDel(delegatePlugin, delegateConf)
 	if err != nil {
-		return fmt.Errorf("failed to invoke delegate plugin %s: %v", conf.Delegate["type"])
+		return fmt.Errorf("failed to invoke delegate plugin %s: %v", delegatePlugin, err)
 	}
 
 	return nil
