@@ -25,6 +25,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 
+	"github.com/containernetworking/cni/pkg/invoke"
 	"github.com/containernetworking/cni/pkg/ip"
 	"github.com/containernetworking/cni/pkg/ipam"
 	"github.com/containernetworking/cni/pkg/ns"
@@ -36,6 +37,7 @@ import (
 
 type NetConf struct {
 	types.NetConf
+	Args     map[string]interface{} `json:"args"`
 	MTU      int                    `json:"mtu"`
 	Delegate map[string]interface{} `json:"delegate"`
 }
@@ -70,7 +72,7 @@ func setupContainerVeth(netns, ifName string, mtu int, pr *current.Result, spart
 			return fmt.Errorf("failed to lookup container VETH %q: %v", ifName, err)
 		}
 
-		// Configure the container VETH with IP address returned by the
+		// Configure the container veth with IP address returned by the
 		// IPAM, but set the netmask to a /32. We are adding this closure
 		// since we need modify the `types.Result` passed into this
 		// method.
@@ -126,9 +128,31 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to enable forwarding: %v", err)
 	}
 
+	// Invoke the delegate plugin.
+	conf.Delegate["name"] = conf.Name
+	conf.Delegate["cniVersion"] = conf.CNIVersion
+	conf.Delegate["args"] = conf.Args
+
+	delegateConf, err := json.Marshal(conf.Delegate)
+	if err != nil {
+		return fmt.Errorf("failed to marshall the delegate configuration: %v", err)
+	}
+
+	delegatePlugin, ok := conf.Delegate["type"].(string)
+	if !ok {
+		return fmt.Errorf("delegate plugin not defined in network: %s", conf.Delegate["name"])
+	}
+
+	delegateResult, err := invoke.DelegateAdd(delegatePlugin, delegateConf)
+	if err != nil {
+		return fmt.Errorf("failed to invoke delegate plugin %s: %v", conf.Delegate["type"])
+	}
+
+	// Delegate plugin seems to be successful, install the spartan
+	// network.
 	spartanNetConf, err := json.Marshal(spartan.SpartanConfig)
 	if err != nil {
-		return fmt.Errorf("failed to Marshall the `spartan-network` IPAM configuration: %v", err)
+		return fmt.Errorf("failed to marshall the `spartan-network` IPAM configuration: %v", err)
 	}
 
 	// Run the IPAM plugin for the spartan network.
@@ -174,7 +198,14 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to add spartan route %v: %v", containerRoute, err)
 	}
 
-	return result.Print()
+	//TODO(asridharan): We probably need to update the DNS result to
+	//make sure that we override the DNS resolution with the spartan
+	//network, since the operator has explicitly requested to use the
+	//spartan network.
+
+	// We always return the result from the delegate plugin and not from
+	// this plugin.
+	return delegateResult.Print()
 }
 
 func cmdDel(args *skel.CmdArgs) error {
@@ -191,6 +222,14 @@ func cmdDel(args *skel.CmdArgs) error {
 		return nil
 	}
 
+	// Ideally, the kernel would clean up the veth and routes within the
+	// network namespace when the namespace is destroyed. We are still
+	// explicitly deleting the interface here since we want the IP
+	// address associated with the interface. We will then use the IP
+	// address to clean up any associated routes in the host network
+	// namespace. We also don't want any interfaces and routes to be
+	// present when the delegate plugin is invoked, since the presence
+	// of these routes might confuse the delegate plugin.
 	var ipn *net.IPNet
 	err := ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {
 		var err error
@@ -229,6 +268,26 @@ func cmdDel(args *skel.CmdArgs) error {
 
 	if err = netlink.RouteDel(&containerRoute); err != nil {
 		return fmt.Errorf("failed to delete container route %v: %v", containerRoute, err)
+	}
+
+	// Invoke the delegate plugin.
+	conf.Delegate["name"] = conf.Name
+	conf.Delegate["cniVersion"] = conf.CNIVersion
+	conf.Delegate["args"] = conf.Args
+
+	delegateConf, err := json.Marshal(conf.Delegate)
+	if err != nil {
+		return fmt.Errorf("failed to marshall the delegate configuration: %v", err)
+	}
+
+	delegatePlugin, ok := conf.Delegate["type"].(string)
+	if !ok {
+		return fmt.Errorf("delegate plugin not defined in network: %s", conf.Delegate["name"])
+	}
+
+	err = invoke.DelegateDel(delegatePlugin, delegateConf)
+	if err != nil {
+		return fmt.Errorf("failed to invoke delegate plugin %s: %v", conf.Delegate["type"])
 	}
 
 	return nil
