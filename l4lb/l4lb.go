@@ -148,15 +148,17 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to invoke delegate plugin %s: %v", conf.Delegate["type"])
 	}
 
+	spartanConfig := spartan.SpartanConfig
+
 	// Delegate plugin seems to be successful, install the spartan
 	// network.
-	spartanNetConf, err := json.Marshal(spartan.SpartanConfig)
+	spartanNetConf, err := json.Marshal(spartanConfig)
 	if err != nil {
 		return fmt.Errorf("failed to marshall the `spartan-network` IPAM configuration: %v", err)
 	}
 
 	// Run the IPAM plugin for the spartan network.
-	ipamResult, err := ipam.ExecAdd(conf.IPAM.Type, spartanNetConf)
+	ipamResult, err := ipam.ExecAdd(spartanConfig.IPAM.Type, spartanNetConf)
 	if err != nil {
 		return err
 	}
@@ -175,7 +177,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return errors.New("Expecting a single IPv4 address from IPAM")
 	}
 
-	hostVethName, err := setupContainerVeth(args.Netns, args.IfName, conf.MTU, result, spartan.SpartanIPs)
+	hostVethName, err := setupContainerVeth(args.Netns, spartanConfig.Interface, conf.MTU, result, spartan.SpartanIPs)
 	if err != nil {
 		return err
 	}
@@ -214,7 +216,14 @@ func cmdDel(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to load netconf: %v", err)
 	}
 
-	if err := ipam.ExecDel(conf.IPAM.Type, args.StdinData); err != nil {
+	spartanConfig := spartan.SpartanConfig
+
+	spartanNetConf, err := json.Marshal(spartanConfig)
+	if err != nil {
+		return fmt.Errorf("failed to marshall the `spartan-network` IPAM configuration: %v", err)
+	}
+
+	if err = ipam.ExecDel(spartanConfig.IPAM.Type, spartanNetConf); err != nil {
 		return err
 	}
 
@@ -231,9 +240,9 @@ func cmdDel(args *skel.CmdArgs) error {
 	// present when the delegate plugin is invoked, since the presence
 	// of these routes might confuse the delegate plugin.
 	var ipn *net.IPNet
-	err := ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {
+	err = ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {
 		var err error
-		ipn, err = ip.DelLinkByNameAddr(args.IfName, netlink.FAMILY_V4)
+		ipn, err = ip.DelLinkByNameAddr(spartanConfig.Interface, netlink.FAMILY_V4)
 		if err != nil {
 			return err
 		}

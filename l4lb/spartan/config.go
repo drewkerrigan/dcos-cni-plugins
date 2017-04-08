@@ -14,8 +14,9 @@ type SpartanIPAM struct {
 }
 
 type SpartanNetwork struct {
-	Name string      `json:"name"`
-	IPAM SpartanIPAM `json:"ipam"`
+	Name      string      `json:"name"`
+	Interface string      `json:"spartanInterface"`
+	IPAM      SpartanIPAM `json:"ipam"`
 }
 
 // TODO(asridharan): This needs to be derived from the spartan
@@ -38,7 +39,8 @@ var SpartanIPs = []net.IPNet{
 // TODO(asridharan): This needs to be derived from the spartan
 // configuration.
 var SpartanConfig = SpartanNetwork{
-	Name: "spartan-network",
+	Name:      "spartan-network",
+	Interface: "spartan0",
 	IPAM: SpartanIPAM{
 		Type:       "host-local",
 		RangeStart: net.IPv4(198, 50, 100, 10),
