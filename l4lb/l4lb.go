@@ -22,7 +22,7 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/asridharan/dcos-cni-plugins/l4lb/spartan"
+	"github.com/asridharan/dcos-cni-plugins/pkg/spartan"
 
 	"github.com/vishvananda/netlink"
 
