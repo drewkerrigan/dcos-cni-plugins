@@ -149,17 +149,15 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to invoke delegate plugin %s: %v", delegatePlugin, err)
 	}
 
-	spartanConfig := spartan.SpartanConfig
-
 	// Delegate plugin seems to be successful, install the spartan
 	// network.
-	spartanNetConf, err := json.Marshal(spartanConfig)
+	spartanNetConf, err := json.Marshal(spartan.Config)
 	if err != nil {
 		return fmt.Errorf("failed to marshall the `spartan-network` IPAM configuration: %v", err)
 	}
 
 	// Run the IPAM plugin for the spartan network.
-	ipamResult, err := ipam.ExecAdd(spartanConfig.IPAM.Type, spartanNetConf)
+	ipamResult, err := ipam.ExecAdd(spartan.Config.IPAM.Type, spartanNetConf)
 	if err != nil {
 		return err
 	}
@@ -178,7 +176,7 @@ func cmdAdd(args *skel.CmdArgs) error {
 		return errors.New("Expecting a single IPv4 address from IPAM")
 	}
 
-	hostVethName, err := setupContainerVeth(args.Netns, spartanConfig.Interface, conf.MTU, result, spartan.SpartanIPs)
+	hostVethName, err := setupContainerVeth(args.Netns, spartan.Config.Interface, conf.MTU, result, spartan.IPs)
 	if err != nil {
 		return err
 	}
@@ -217,14 +215,12 @@ func cmdDel(args *skel.CmdArgs) error {
 		return fmt.Errorf("failed to load netconf: %v", err)
 	}
 
-	spartanConfig := spartan.SpartanConfig
-
-	spartanNetConf, err := json.Marshal(spartanConfig)
+	spartanNetConf, err := json.Marshal(spartan.Config)
 	if err != nil {
 		return fmt.Errorf("failed to marshall the `spartan-network` IPAM configuration: %v", err)
 	}
 
-	if err = ipam.ExecDel(spartanConfig.IPAM.Type, spartanNetConf); err != nil {
+	if err = ipam.ExecDel(spartan.Config.IPAM.Type, spartanNetConf); err != nil {
 		return err
 	}
 
@@ -243,13 +239,13 @@ func cmdDel(args *skel.CmdArgs) error {
 	var ipn *net.IPNet
 	err = ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {
 		var err error
-		ipn, err = ip.DelLinkByNameAddr(spartanConfig.Interface, netlink.FAMILY_V4)
+		ipn, err = ip.DelLinkByNameAddr(spartan.Config.Interface, netlink.FAMILY_V4)
 		if err != nil {
 			return err
 		}
 
 		// Delete the spartan routes.
-		for _, spartanIP := range spartan.SpartanIPs {
+		for _, spartanIP := range spartan.IPs {
 			spartanRoute := netlink.Route{
 				Dst:   &spartanIP,
 				Scope: netlink.SCOPE_LINK,

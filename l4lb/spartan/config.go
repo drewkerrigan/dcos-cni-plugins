@@ -6,22 +6,22 @@ import (
 	"github.com/containernetworking/cni/pkg/types"
 )
 
-type SpartanIPAM struct {
+type IPAM struct {
 	Type       string      `json:"type"`
 	RangeStart net.IP      `json:"rangeStart"`
 	RangeEnd   net.IP      `json:"rangeEnd"`
 	Subnet     types.IPNet `json:"subnet"`
 }
 
-type SpartanNetwork struct {
-	Name      string      `json:"name"`
-	Interface string      `json:"spartanInterface"`
-	IPAM      SpartanIPAM `json:"ipam"`
+type Network struct {
+	Name      string `json:"name"`
+	Interface string `json:"spartanInterface"`
+	IPAM      IPAM   `json:"ipam"`
 }
 
 // TODO(asridharan): This needs to be derived from the spartan
 // configuration.
-var SpartanIPs = []net.IPNet{
+var IPs = []net.IPNet{
 	net.IPNet{
 		IP:   net.IPv4(198, 50, 100, 1),
 		Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0xff),
@@ -38,10 +38,10 @@ var SpartanIPs = []net.IPNet{
 
 // TODO(asridharan): This needs to be derived from the spartan
 // configuration.
-var SpartanConfig = SpartanNetwork{
+var Config = Network{
 	Name:      "spartan-network",
 	Interface: "spartan0",
-	IPAM: SpartanIPAM{
+	IPAM: IPAM{
 		Type:       "host-local",
 		RangeStart: net.IPv4(198, 50, 100, 10),
 		RangeEnd:   net.IPv4(198, 50, 100, 253),
