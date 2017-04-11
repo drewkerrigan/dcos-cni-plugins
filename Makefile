@@ -7,6 +7,9 @@ VPATH=bin:l4lb:pkg/spartan
 L4LB=github.com/asridharan/dcos-cni-plugins/l4lb
 L4LB_SRC=$(wildcard l4lb/*.go) $(wildcard pkg/spartan/*.go)
 
+# Default go OS to linux
+GOOS?=linux
+
 PLUGINS=dcos-l4lb
 
 .PHONY: all plugin
@@ -24,7 +27,7 @@ vendor: glide.yaml
 
 dcos-l4lb:$(L4LB_SRC)
 	mkdir -p `pwd`/bin
-	go build -v -o `pwd`/bin/$@ $(L4LB)
+	GOOS=$(GOOS) go build -v -o `pwd`/bin/$@ $(L4LB)
 
 plugin: vendor $(PLUGINS)
 
