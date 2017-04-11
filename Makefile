@@ -1,11 +1,11 @@
 # Disable make's implicit rules, which are not useful for golang, and
 # slow down the build considerably.
 
-VPATH=bin:l4lb:l4lb/spartan
+VPATH=bin:l4lb:pkg/spartan
 
 #dcos-l4lb
 L4LB=github.com/asridharan/dcos-cni-plugins/l4lb
-L4LB_SRC=$(wilcard l4lb/*.go) $(wildcard l4lb/spartan/*.go)
+L4LB_SRC=$(wildcard l4lb/*.go) $(wildcard pkg/spartan/*.go)
 
 PLUGINS=dcos-l4lb
 

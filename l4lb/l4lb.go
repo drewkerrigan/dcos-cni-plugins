@@ -233,28 +233,17 @@ func cmdDel(args *skel.CmdArgs) error {
 	// explicitly deleting the interface here since we want the IP
 	// address associated with the interface. We will then use the IP
 	// address to clean up any associated routes in the host network
-	// namespace. We also don't want any interfaces and routes to be
+	// namespace. We also don't want any interfaces to be
 	// present when the delegate plugin is invoked, since the presence
 	// of these routes might confuse the delegate plugin.
 	var ipn *net.IPNet
 	err = ns.WithNetNSPath(args.Netns, func(_ ns.NetNS) error {
+		// We just need to delete the interface, the associated routes
+		// will get deleted by themselves.
 		var err error
 		ipn, err = ip.DelLinkByNameAddr(spartan.Config.Interface, netlink.FAMILY_V4)
 		if err != nil {
 			return err
-		}
-
-		// Delete the spartan routes.
-		for _, spartanIP := range spartan.IPs {
-			spartanRoute := netlink.Route{
-				Dst:   &spartanIP,
-				Scope: netlink.SCOPE_LINK,
-				Src:   ipn.IP,
-			}
-
-			if err = netlink.RouteDel(&spartanRoute); err != nil {
-				return fmt.Errorf("failed to delete spartan route %v: %v", spartanRoute, err)
-			}
 		}
 
 		return nil
